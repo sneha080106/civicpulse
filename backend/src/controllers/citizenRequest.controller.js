@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { resolveCountryName, DEFAULT_COUNTRY_CODE } = require('../config/countries');
 const { generateRequestId } = require('../utils/requestId');
 const { VALID_CATEGORIES, VALID_URGENCY } = require('../utils/requestValidation');
 
@@ -7,7 +8,7 @@ const createCitizenRequest = async (req, res, next) => {
     const CitizenRequest = mongoose.model('CitizenRequest');
     const {
       description, category, state, district, urgency,
-      affectedPopulationEstimate, language,
+      affectedPopulationEstimate, language, country
     } = req.body;
 
     const errors = [];
@@ -37,7 +38,7 @@ const createCitizenRequest = async (req, res, next) => {
           language: finalLanguage,
           category,
           problem: description.trim(),
-          location: { country: 'India', state: state.trim(), district: district.trim() },
+          location: { country: resolveCountryName(country || DEFAULT_COUNTRY_CODE), state: state.trim(), district: district.trim() },
           locationConfidence: 'HIGH',
           urgency,
           source: 'text',

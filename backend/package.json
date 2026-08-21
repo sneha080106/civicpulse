@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node src/seed/seedDatabase.js"
+    "seed": "node src/seed/seedDatabase.js",
+    "seed:brics": "node src/seed/seedBricsData.js"
   },
   "dependencies": {
     "cors": "^2.8.6",

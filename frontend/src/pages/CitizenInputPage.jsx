@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { createRequest, analyzeRequest } from '../services/api';
+import { createRequest, analyzeRequest, triggerAnalyticsRecalculation } from '../services/api';
 import AIUnderstandingCard from '../components/AIUnderstandingCard';
+import VoiceInputButton from '../components/VoiceInputButton';
+import { useCountry } from '../context/CountryContext';
 
 const SOURCES = [
   { id: 'text', label: 'Text', enabled: true },
-  { id: 'voice', label: 'Voice', enabled: false },
   { id: 'messaging', label: 'Messaging', enabled: false },
 ];
 
 // idle -> submitting -> analyzing -> analyzed | submit_error | analyze_error
 const CitizenInputPage = () => {
+  const { country } = useCountry();
   const [text, setText] = useState('');
   const [source, setSource] = useState('text');
   const [status, setStatus] = useState('idle');
@@ -36,7 +38,7 @@ const CitizenInputPage = () => {
 
     let createdId;
     try {
-      const response = await createRequest({ originalText: text.trim(), source });
+    const response = await createRequest({ originalText: text.trim(), source, country });
       createdId = response.data.requestId;
       setRequestId(createdId);
     } catch (err) {
@@ -91,6 +93,11 @@ const CitizenInputPage = () => {
             />
             <div className="form-hint">You can write in English, Hindi, or Bengali. Max 2000 characters.</div>
           </div>
+          <VoiceInputButton
+            languageCode="en"
+            onTranscript={(transcript) => setText((prev) => (prev ? `${prev} ${transcript}` : transcript))}
+            disabled={isBusy}
+          />
 
           <div className="form-field">
             <span className="form-label">How is this being submitted?</span>

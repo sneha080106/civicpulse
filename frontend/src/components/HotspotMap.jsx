@@ -35,7 +35,7 @@ const buildDistrictMarkers = (hotspots) => {
   return Array.from(byDistrict.values());
 };
 
-const HotspotMap = () => {
+const HotspotMap = ({ country }) => {
   const [hotspots, setHotspots] = useState([]);
   const [status, setStatus] = useState('loading'); // loading | success | error
 
@@ -44,7 +44,7 @@ const HotspotMap = () => {
 
     const load = async () => {
       try {
-        const response = await fetchHotspots(100);
+          const response = await fetchHotspots(100, country);
         if (!cancelled) {
           setHotspots(response.hotspots || []);
           setStatus('success');
@@ -54,9 +54,9 @@ const HotspotMap = () => {
       }
     };
 
-    load();
+      load();
     return () => { cancelled = true; };
-  }, []);
+  }, [country]);
 
   if (status === 'loading') return <LoadingState label="Loading geographic hotspots..." />;
 

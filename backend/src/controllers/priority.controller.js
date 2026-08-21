@@ -12,7 +12,15 @@ const getPriorities = async (req, res, next) => {
     const district = sanitizeFilterValue(req.query.district);
     if (sector) filter.sector = sector;
     if (district) filter.district = district;
-
+    const mongoose2 = mongoose; // already imported at top, reuse
+    const countryCode = sanitizeFilterValue(req.query.country);
+if (countryCode) {
+  const { resolveCountryName } = require('../config/countries');
+  const countryName = resolveCountryName(countryCode);
+  const Demographic = mongoose.model('Demographic');
+  const matchingRegionIds = (await Demographic.find({ country: countryName })).map((d) => d.regionId);
+  filter.regionId = { $in: matchingRegionIds };
+}
     const results = await PriorityResult.find(filter).sort({ priorityScore: -1 }).limit(limit);
 
     const priorities = results.map((r, index) => ({

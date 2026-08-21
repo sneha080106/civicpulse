@@ -6,8 +6,12 @@ import LoadingState from '../components/LoadingState';
 import HotspotMap from '../components/HotspotMap';
 import CitizenRequestForm from '../components/CitizenRequestForm';
 import { fetchOverview, fetchPriorities } from '../services/api';
+import CountrySelector from '../components/CountrySelector';
+import { useCountry } from '../context/CountryContext';
+import CountrySummary from '../components/CountrySummary';
 
 const DashboardPage = () => {
+  const { country } = useCountry();
   const [overview, setOverview] = useState(null);
   const [topPriorities, setTopPriorities] = useState([]);
   const [status, setStatus] = useState('loading');
@@ -20,9 +24,9 @@ const DashboardPage = () => {
     const load = async () => {
       setStatus((prev) => (prev === 'success' ? 'success' : 'loading')); // avoid flicker on refresh
       try {
-        const [overviewRes, prioritiesRes] = await Promise.all([
-          fetchOverview(),
-          fetchPriorities({ limit: 5 }),
+          const [overviewRes, prioritiesRes] = await Promise.all([
+          fetchOverview(country),
+          fetchPriorities({ limit: 5, country }),
         ]);
         if (!cancelled) {
           setOverview(overviewRes.data);
@@ -36,7 +40,7 @@ const DashboardPage = () => {
 
     load();
     return () => { cancelled = true; };
-  }, [refreshKey]);
+  }, [refreshKey, country]);
 
   const handleSubmitted = useCallback(() => {
     setRefreshKey((k) => k + 1); // re-runs the effect above, and HotspotMap remounts via its own key below
@@ -55,10 +59,11 @@ const DashboardPage = () => {
       <div className="badge badge-warning" style={{ display: 'block', width: 'fit-content', marginBottom: '20px' }}>
         Prototype analytics — demographic, infrastructure and investment values shown here are synthetic demonstration data.
       </div>
+      <CountrySelector />
+      <CountrySummary />
 
       <div className="surface-card section-block">
         <h2>Submit a Citizen Request</h2>
-        <p>Structured submission — select the sector and urgency directly. This is separate from the free-text AI intake at <code>/citizen</code>.</p>
         <CitizenRequestForm onSubmitted={handleSubmitted} />
       </div>
 
@@ -74,7 +79,7 @@ const DashboardPage = () => {
           </div>
 
           <h2>Geographic Priority Hotspots</h2>
-          <HotspotMap key={refreshKey} />
+          <HotspotMap key={refreshKey} country={country} />
 
           <h2 style={{ marginTop: '32px' }}>Priority Ranking</h2>
 

@@ -7,9 +7,11 @@ const getRequests = async (req, res, next) => {
   try {
     const CitizenRequest = mongoose.model('CitizenRequest');
     const filter = {};
+    const country = sanitizeFilterValue(req.query.country);
     const district = sanitizeFilterValue(req.query.district);
     const category = sanitizeFilterValue(req.query.category);
     const language = sanitizeFilterValue(req.query.language);
+    if (country) filter['location.country'] = country;
     if (district) filter['location.district'] = district;
     if (category) filter.category = category;
     if (language) filter.language = language;
@@ -27,7 +29,7 @@ const ALLOWED_LANGUAGES = ['en', 'hi', 'bn'];
 const createRequest = async (req, res, next) => {
   try {
     const CitizenRequest = mongoose.model('CitizenRequest');
-    const { originalText, source, language } = req.body;
+    const { originalText, source, language, country } = req.body;
 
     if (!originalText || typeof originalText !== 'string' || originalText.trim().length === 0) {
       return res.status(400).json({ success: false, message: 'originalText is required' });
@@ -54,13 +56,14 @@ const createRequest = async (req, res, next) => {
 
     for (let attempt = 0; attempt < 3 && !saved; attempt++) {
       try {
-        const doc = new CitizenRequest({
-          requestId,
-          originalText: originalText.trim(),
-          language: finalLanguage,
-          category: 'Other', // placeholder until /analyze runs — free-text path, no citizenProvided
-          source: finalSource,
-        });
+      const doc = new CitizenRequest({
+  requestId,
+  originalText: originalText.trim(),
+  language: finalLanguage,
+  category: 'Other',
+  source: finalSource,
+  ...(country ? { location: { country } } : {}),
+});
         saved = await doc.save();
       } catch (err) {
         if (err.code === 11000) { requestId = await generateRequestId(CitizenRequest); continue; }

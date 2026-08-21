@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { parseLimit } = require('../utils/query');
+const { parseLimit, sanitizeFilterValue } = require('../utils/query');
 const { regenerateAllPriorityResults } = require('../services/priorityGeneration.service');
 
 const getOverview = async (req, res, next) => {
@@ -44,8 +44,15 @@ const getHotspots = async (req, res, next) => {
     const PriorityResult = mongoose.model('PriorityResult');
     const Demographic = mongoose.model('Demographic');
     const limit = parseLimit(req.query.limit);
-
-    const results = await PriorityResult.find().sort({ priorityScore: -1 }).limit(limit);
+        const countryCode = sanitizeFilterValue(req.query.country);
+    let hotspotFilter = {};
+    if (countryCode) {
+      const { resolveCountryName } = require('../config/countries');
+      const countryName = resolveCountryName(countryCode);
+      const matchingRegionIds = (await Demographic.find({ country: countryName })).map((d) => d.regionId);
+      hotspotFilter = { regionId: { $in: matchingRegionIds } };
+    }
+    const results = await PriorityResult.find(hotspotFilter).sort({ priorityScore: -1 }).limit(limit);
 
     const regionIds = [...new Set(results.map((r) => r.regionId))];
     const demographics = await Demographic.find({ regionId: { $in: regionIds } });
