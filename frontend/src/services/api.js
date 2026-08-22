@@ -16,7 +16,7 @@ export const createCitizenRequest = async (payload) => {
 export const fetchCountries = async () => (await api.get('/countries')).data;
 export const getRequests = async (params = {}) => (await api.get('/requests', { params })).data;
 export const analyzeRequest = async (requestId) => (await api.post('/requests/analyze', { requestId })).data;
-
+export const submitMessagingRequest = async (payload) => (await api.post('/messaging/webhook', payload)).data;
 export const fetchCountrySummary = async (countryCode) => (await api.get(`/country-data/${countryCode}/summary`)).data;
 // GET /api/analytics/hotspots — used by the geographic hotspot map.
 // limit=100 (the backend's max) so we get every district-sector combo, not

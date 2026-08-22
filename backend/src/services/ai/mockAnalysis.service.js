@@ -9,6 +9,14 @@ const detectLanguage = (text) => {
   // sentences (which also end in "।") to be misdetected as Hindi.
   const hasDevanagariLetters = /[\u0900-\u0963\u0966-\u097F]/.test(text);
   const hasBengaliLetters = /[\u0980-\u09FF]/.test(text);
+  if (/[\u0C00-\u0C7F]/.test(text)) return 'te'; // Telugu
+  if (/[\u0B80-\u0BFF]/.test(text)) return 'ta'; // Tamil
+  if (/[\u0A80-\u0AFF]/.test(text)) return 'gu'; // Gujarati
+  if (/[\u0C80-\u0CFF]/.test(text)) return 'kn'; // Kannada
+  if (/[\u0D00-\u0D7F]/.test(text)) return 'ml'; // Malayalam
+  if (/[\u0A00-\u0A7F]/.test(text)) return 'pa'; // Punjabi (Gurmukhi)
+  if (/[\u0B00-\u0B7F]/.test(text)) return 'or'; // Odia
+  if (/[\u0600-\u06FF]/.test(text)) return 'ur';
 
   if (hasBengaliLetters) return 'bn';
   if (hasDevanagariLetters) return 'hi';

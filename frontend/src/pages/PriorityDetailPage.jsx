@@ -39,10 +39,13 @@ const PriorityDetailPage = () => {
         <p>Region ID: {priority.regionId}</p>
       </div>
 
-      <div className="badge badge-warning" style={{ display: 'block', width: 'fit-content', marginBottom: '16px' }}>
+            <div className="badge badge-warning" style={{ display: 'block', width: 'fit-content', marginBottom: '16px' }}>
         Prototype analytics — synthetic demonstration data.
       </div>
 
+      <div className="form-hint" style={{ marginBottom: '16px' }}>
+        WHAT: {priority.sector} development need &nbsp;·&nbsp; WHERE: {priority.district} &nbsp;·&nbsp; PRIORITY: {priority.priorityScore} ({priority.priorityLevel})
+      </div>
       <div className="surface-card section-block">
         <h3>Priority Score</h3>
         <div className="detail-metric-value" style={{ fontSize: '2.5rem' }}>{priority.priorityScore}</div>
@@ -59,6 +62,21 @@ const PriorityDetailPage = () => {
             <tr><td>Investment Gap</td><td>+{breakdown.investmentContribution}</td></tr>
           </tbody>
         </table>
+      </div>
+
+      <div className="surface-card section-block">
+        <h3>Why? — Evidence Explanation</h3>
+        <div className="badge badge-neutral" style={{ marginBottom: '12px' }}>{priority.priorityLevel} PRIORITY</div>
+        {priority.evidenceExplanation && priority.evidenceExplanation.length > 0 ? (
+          priority.evidenceExplanation.map((item) => (
+            <div key={item.factor} style={{ marginBottom: '10px' }}>
+              <div className="detail-metric-label">{item.factor} — {item.value}</div>
+              <p style={{ margin: 0 }}>{item.description}</p>
+            </div>
+          ))
+        ) : (
+          <p>Evidence explanation not available.</p>
+        )}
       </div>
 
       <div className="surface-card section-block">

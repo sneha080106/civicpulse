@@ -64,4 +64,71 @@ const generateRecommendation = (evidence = {}) => {
   return { recommendation, drivers };
 };
 
-module.exports = { generateRecommendation };
+// Step 21: priority-level label for display only — derived from the
+// existing priorityScore, does not alter it.
+const getPriorityLevel = (score) => {
+  if (typeof score !== 'number' || Number.isNaN(score)) return 'UNKNOWN';
+  if (score >= 65) return 'HIGH';
+  if (score >= 35) return 'MEDIUM';
+  return 'LOW';
+};
+
+// Step 21: human-readable per-factor explanations, built ONLY from
+// deterministic values already computed by the priority engine — no LLM,
+// no chain-of-thought, no fabricated data. Mirrors buildDrivers() logic
+// but returns descriptive sentences instead of short labels.
+const explainFactors = ({ demandScore, infrastructureGap, populationImpact, urgencyScore, investmentGap, citizenRequestCount }) => {
+  const explanations = [];
+
+  if (typeof demandScore === 'number') {
+    explanations.push({
+      factor: 'Citizen Demand',
+      value: demandScore,
+      description: citizenRequestCount
+        ? `${citizenRequestCount} citizen request(s) recorded — ${demandScore >= 65 ? 'high demand from citizens in this region.' : demandScore >= 35 ? 'moderate citizen demand.' : 'relatively low citizen demand so far.'}`
+        : 'No citizen request count available.',
+    });
+  }
+  if (typeof infrastructureGap === 'number') {
+    explanations.push({
+      factor: 'Infrastructure Gap',
+      value: infrastructureGap,
+      description: infrastructureGap >= 65
+        ? 'The region has a significant infrastructure deficit in this sector.'
+        : infrastructureGap >= 35
+        ? 'The region has a moderate infrastructure gap in this sector.'
+        : 'Infrastructure in this sector is relatively strong.',
+    });
+  }
+  if (typeof populationImpact === 'number') {
+    explanations.push({
+      factor: 'Population Impact',
+      value: populationImpact,
+      description: populationImpact >= 65
+        ? 'A large potentially affected population could benefit from intervention, relative to other analyzed regions.'
+        : 'A smaller potentially affected population, relative to other analyzed regions.',
+    });
+  }
+  if (typeof urgencyScore === 'number') {
+    explanations.push({
+      factor: 'Urgency',
+      value: urgencyScore,
+      description: urgencyScore >= 65
+        ? 'Citizen reports for this sector indicate high urgency.'
+        : 'Citizen reports indicate low-to-moderate urgency.',
+    });
+  }
+  if (typeof investmentGap === 'number') {
+    explanations.push({
+      factor: 'Investment Gap (Relative)',
+      value: investmentGap,
+      description: investmentGap >= 65
+        ? 'Current/planned investment does not appear to adequately cover the identified need, relative to other analyzed regions.'
+        : 'Investment coverage appears relatively more adequate compared to other analyzed regions.',
+    });
+  }
+
+  return explanations;
+};
+
+module.exports = { generateRecommendation, getPriorityLevel, explainFactors };

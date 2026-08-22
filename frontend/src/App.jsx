@@ -5,6 +5,7 @@ import CitizenInputPage from './pages/CitizenInputPage';
 import DashboardPage from './pages/DashboardPage';
 import PrioritiesPage from './pages/PrioritiesPage';
 import PriorityDetailPage from './pages/PriorityDetailPage';
+import MessagingSimulatorPage from './pages/MessagingSimulatorPage';
 
 const App = () => {
   return (
@@ -15,6 +16,7 @@ const App = () => {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/priorities" element={<PrioritiesPage />} />
         <Route path="/priorities/:id" element={<PriorityDetailPage />} />
+        <Route path="/messaging-simulator" element={<MessagingSimulatorPage />} />
       </Route>
     </Routes>
   );

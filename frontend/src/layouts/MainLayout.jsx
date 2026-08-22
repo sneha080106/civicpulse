@@ -6,6 +6,7 @@ const navItems = [
   { to: '/citizen', label: 'Submit a Request' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/priorities', label: 'Priorities' },
+  { to: '/messaging-simulator', label: 'Messaging Simulator' },
 ];
 
 const MainLayout = () => {

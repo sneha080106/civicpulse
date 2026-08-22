@@ -13,7 +13,7 @@ const citizenRequestSchema = new mongoose.Schema(
     },
     language: {
       type: String,
-      enum: ['en', 'hi', 'bn'],
+      enum: ['en', 'hi', 'bn', 'te', 'mr', 'ta', 'gu', 'kn', 'ml', 'pa', 'or', 'as', 'ur'],
       required: true,
     },
     translatedText: {
@@ -86,6 +86,18 @@ const citizenRequestSchema = new mongoose.Schema(
       category: { type: String, default: null },
       subCategory: { type: String, default: null },
       problem: { type: String, default: null },
+
+          // Step 17: optional messaging-channel metadata. All fields default to
+    // null and are never required — existing text/voice requests are
+    // completely unaffected. messageId is intentionally NOT unique-indexed
+    // (see messaging.controller.js's idempotency note) — a genuinely
+    // enforced unique constraint would require an index migration, which
+    // this additive-only step avoids.
+    channel: { type: String, default: null },
+    senderId: { type: String, default: null },
+    messageId: { type: String, default: null },
+    sourceLanguageLabel: { type: String, default: null },
+
       location: {
         country: { type: String, default: null },
         state: { type: String, default: null },

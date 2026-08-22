@@ -3,7 +3,11 @@ import { useCallback, useRef, useState } from 'react';
 // Maps CivicPulse's existing internal language codes to BCP-47 tags the
 // Web Speech API requires. Falls back to English if an unmapped code is
 // passed — never throws.
-const LANGUAGE_TAGS = { en: 'en-IN', hi: 'hi-IN', bn: 'bn-IN' };
+const LANGUAGE_TAGS = {
+  en: 'en-IN', hi: 'hi-IN', bn: 'bn-IN', te: 'te-IN', mr: 'mr-IN',
+  ta: 'ta-IN', gu: 'gu-IN', kn: 'kn-IN', ml: 'ml-IN', pa: 'pa-IN',
+  or: 'or-IN', as: 'as-IN', ur: 'ur-IN',
+};
 
 // status: 'idle' | 'listening' | 'processing' | 'error' | 'unsupported'
 const useSpeechRecognition = () => {

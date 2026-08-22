@@ -5,7 +5,7 @@ import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import HotspotMap from '../components/HotspotMap';
 import CitizenRequestForm from '../components/CitizenRequestForm';
-import { fetchOverview, fetchPriorities } from '../services/api';
+import { fetchOverview, fetchPriorities, fetchHotspots } from '../services/api';
 import CountrySelector from '../components/CountrySelector';
 import { useCountry } from '../context/CountryContext';
 import CountrySummary from '../components/CountrySummary';
@@ -14,6 +14,7 @@ const DashboardPage = () => {
   const { country } = useCountry();
   const [overview, setOverview] = useState(null);
   const [topPriorities, setTopPriorities] = useState([]);
+  const [topHotspots, setTopHotspots] = useState([]);
   const [status, setStatus] = useState('loading');
   const [refreshKey, setRefreshKey] = useState(0); // bumped after a citizen submission
   const navigate = useNavigate();
@@ -23,14 +24,16 @@ const DashboardPage = () => {
 
     const load = async () => {
       setStatus((prev) => (prev === 'success' ? 'success' : 'loading')); // avoid flicker on refresh
-      try {
-          const [overviewRes, prioritiesRes] = await Promise.all([
+            try {
+          const [overviewRes, prioritiesRes, hotspotsRes] = await Promise.all([
           fetchOverview(country),
           fetchPriorities({ limit: 5, country }),
+          fetchHotspots(5, country),
         ]);
         if (!cancelled) {
           setOverview(overviewRes.data);
           setTopPriorities(prioritiesRes.priorities || []);
+          setTopHotspots(hotspotsRes.hotspots || []);
           setStatus('success');
         }
       } catch (err) {
@@ -79,10 +82,39 @@ const DashboardPage = () => {
           </div>
 
           <h2>Geographic Priority Hotspots</h2>
-          <HotspotMap key={refreshKey} country={country} />
+          <p className="form-hint" style={{ marginTop: '-8px', marginBottom: '12px' }}>Regions with concentrated citizen demand.</p>
+                  <HotspotMap key={refreshKey} country={country} />
+
+          <h2 style={{ marginTop: '32px' }}>Top Demand Hotspots</h2>
+          <p className="form-hint" style={{ marginTop: '-8px', marginBottom: '12px' }}>Regions ranked by concentrated citizen demand (hotspot score) — not the same as individual priority scores.</p>
+          {status === 'success' && topHotspots.length === 0 && (
+            <EmptyState title="No hotspots yet" description="Run priority analysis to identify demand hotspots." />
+          )}
+
+          {status === 'success' && topHotspots.length > 0 && (
+            <div className="surface-card" style={{ overflow: 'hidden' }}>
+              <table className="data-table">
+                <thead>
+                  <tr><th>Rank</th><th>Region</th><th>Sector</th><th>Hotspot Score</th><th>Requests</th><th>Infrastructure Gap</th></tr>
+                </thead>
+                <tbody>
+                  {topHotspots.map((h, idx) => (
+                    <tr key={`${h.regionId}-${h.sector}`}>
+                      <td><span className="rank-badge">{idx + 1}</span></td>
+                      <td>{h.district}</td>
+                      <td>{h.sector}</td>
+                      <td>{h.hotspotScore}</td>
+                      <td>{h.citizenRequestCount}</td>
+                      <td>{h.infrastructureGap}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <h2 style={{ marginTop: '32px' }}>Priority Ranking</h2>
-
+          <p className="form-hint" style={{ marginTop: '-8px', marginBottom: '12px' }}>Regions ranked by concentrated citizen demand (hotspot score) — not the same as individual priority scores.</p>
           {isLoading && <LoadingState label="Loading priority ranking..." />}
 
           {status === 'success' && topPriorities.length === 0 && (

@@ -22,7 +22,7 @@ Do not generate priority scores.
 Respond with ONLY a single JSON object, no other text, no markdown fences, matching exactly this shape:
 
 {
-  "language": "en" | "hi" | "bn",
+  "language": one of ["en","hi","bn","te","mr","ta","gu","kn","ml","pa","or","as","ur"],
   "translatedText": "string, English normalization of the message",
   "category": one of ["Roads & Transport","Healthcare","Education","Water & Sanitation","Electricity","Internet & Digital Connectivity","Housing","Public Safety","Other"],
   "subCategory": "string or null",

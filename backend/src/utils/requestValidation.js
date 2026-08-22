@@ -12,7 +12,7 @@ const VALID_CATEGORIES = [
 
 const VALID_URGENCY = ['LOW', 'MEDIUM', 'HIGH'];
 const VALID_LOCATION_CONFIDENCE = ['HIGH', 'MEDIUM', 'LOW'];
-const VALID_LANGUAGES = ['en', 'hi', 'bn'];
+const VALID_LANGUAGES = ['en', 'hi', 'bn', 'te', 'mr', 'ta', 'gu', 'kn', 'ml', 'pa', 'or', 'as', 'ur'];
 
 /**
  * Validates a raw AI extraction response against strict allow-lists and

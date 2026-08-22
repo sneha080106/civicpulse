@@ -3,6 +3,7 @@ import { createRequest, analyzeRequest, triggerAnalyticsRecalculation } from '..
 import AIUnderstandingCard from '../components/AIUnderstandingCard';
 import VoiceInputButton from '../components/VoiceInputButton';
 import { useCountry } from '../context/CountryContext';
+import LanguageSelector from '../components/LanguageSelector';
 
 const SOURCES = [
   { id: 'text', label: 'Text', enabled: true },
@@ -21,6 +22,7 @@ const CitizenInputPage = () => {
   const [errorMessage, setErrorMessage] = useState('');
     // add alongside existing useState declarations:
   const [recalcWarning, setRecalcWarning] = useState('');
+  const [inputLanguage, setInputLanguage] = useState('en');
 
   const resetForNewSubmission = () => {
     setRequestId(null);
@@ -91,13 +93,14 @@ const CitizenInputPage = () => {
               maxLength={2000}
               required
             />
-            <div className="form-hint">You can write in English, Hindi, or Bengali. Max 2000 characters.</div>
+            <div className="form-hint">Select your language above, or write in any supported Indian language. Max 2000 characters.</div>
           </div>
+          <LanguageSelector value={inputLanguage} onChange={setInputLanguage} disabled={isBusy} />
           <VoiceInputButton
-            languageCode="en"
-            onTranscript={(transcript) => setText((prev) => (prev ? `${prev} ${transcript}` : transcript))}
-            disabled={isBusy}
-          />
+          languageCode={inputLanguage}
+          onTranscript={(transcript) => setText((prev) => (prev ? `${prev} ${transcript}` : transcript))}
+          disabled={isBusy}
+/>
 
           <div className="form-field">
             <span className="form-label">How is this being submitted?</span>

@@ -1,6 +1,24 @@
 const mongoose = require('mongoose');
 const { parseLimit, sanitizeFilterValue } = require('../utils/query');
 const { regenerateAllPriorityResults } = require('../services/priorityGeneration.service');
+const { getPriorityLevel, explainFactors } = require('../services/recommendation.service');
+
+// Human-readable "Key factors" list from the already-computed contribution
+// values — presentation only, does not alter scoreBreakdown or the score.
+const buildScoreFactors = (breakdown) => {
+  if (!breakdown) return [];
+  const labels = {
+    demandContribution: 'Citizen demand',
+    infrastructureContribution: 'Infrastructure gap',
+    populationContribution: 'Population impact',
+    urgencyContribution: 'Urgency',
+    investmentContribution: 'Investment gap',
+  };
+  return Object.entries(breakdown)
+    .filter(([, value]) => typeof value === 'number' && value > 0)
+    .sort(([, a], [, b]) => b - a)
+    .map(([key, value]) => `${labels[key] || key}: +${value}`);
+};
 
 const getPriorities = async (req, res, next) => {
   try {
@@ -75,6 +93,16 @@ const getPriorityById = async (req, res, next) => {
         scoreBreakdown: result.scoreBreakdown,
         recommendation: result.recommendation ?? null,
         recommendationDrivers: result.recommendationDrivers ?? [],
+        scoreFactors: buildScoreFactors(result.scoreBreakdown),
+        priorityLevel: getPriorityLevel(result.priorityScore),
+        evidenceExplanation: explainFactors({
+          demandScore: result.demandScore,
+          infrastructureGap: result.infrastructureGap,
+          populationImpact: result.populationImpact,
+          urgencyScore: result.urgencyScore,
+          investmentGap: result.investmentGap,
+          citizenRequestCount: result.citizenRequestCount,
+        }),
       },
     });
   } catch (err) {

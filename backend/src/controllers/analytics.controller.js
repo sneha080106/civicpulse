@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { parseLimit, sanitizeFilterValue } = require('../utils/query');
 const { regenerateAllPriorityResults } = require('../services/priorityGeneration.service');
+const { getPriorityLevel, explainFactors } = require('../services/recommendation.service');
 
 const getOverview = async (req, res, next) => {
   try {
@@ -39,38 +40,48 @@ const getOverview = async (req, res, next) => {
  * entirely in the frontend's static visualization mapping, per the
  * architectural separation the step requires.
  */
+
+const { calculateHotspots } = require('../services/hotspotAggregation.service');
+
 const getHotspots = async (req, res, next) => {
   try {
-    const PriorityResult = mongoose.model('PriorityResult');
-    const Demographic = mongoose.model('Demographic');
     const limit = parseLimit(req.query.limit);
-        const countryCode = sanitizeFilterValue(req.query.country);
-    let hotspotFilter = {};
+    const countryCode = sanitizeFilterValue(req.query.country);
+
+    let regionIdFilter = null;
     if (countryCode) {
       const { resolveCountryName } = require('../config/countries');
       const countryName = resolveCountryName(countryCode);
-      const matchingRegionIds = (await Demographic.find({ country: countryName })).map((d) => d.regionId);
-      hotspotFilter = { regionId: { $in: matchingRegionIds } };
+      const Demographic = mongoose.model('Demographic');
+      regionIdFilter = (await Demographic.find({ country: countryName })).map((d) => d.regionId);
     }
-    const results = await PriorityResult.find(hotspotFilter).sort({ priorityScore: -1 }).limit(limit);
 
-    const regionIds = [...new Set(results.map((r) => r.regionId))];
-    const demographics = await Demographic.find({ regionId: { $in: regionIds } });
-    const stateByRegionId = new Map(demographics.map((d) => [d.regionId, d.stateProvince]));
-
-    const hotspots = results.map((r) => ({
-      regionId: r.regionId,
-      district: r.district,
-      state: stateByRegionId.get(r.regionId) || null,
-      sector: r.sector,
-      demandScore: r.demandScore,
-      infrastructureGap: r.infrastructureGap,
-      populationImpact: r.populationImpact,
-      urgencyScore: r.urgencyScore,
-      investmentGap: r.investmentGap,
-      affectedPopulation: r.affectedPopulation,
-      citizenRequestCount: r.citizenRequestCount,
-      priorityScore: r.priorityScore,
+    const allHotspots = await calculateHotspots(regionIdFilter);
+    const hotspots = allHotspots.slice(0, limit).map((h) => ({
+      regionId: h.regionId,
+      district: h.district,
+      state: h.state,
+      sector: h.topSector, // top-demand sector within this region
+      sectorCount: h.sectorCount,
+      demandScore: null, // superseded at region level by citizenRequestCount volume — sector-level demandScore lives on Priority Ranking, not here
+      infrastructureGap: h.infrastructureGap,
+      populationImpact: null, // superseded at region level by affectedPopulation total — see note above
+      urgencyScore: null,
+      investmentGap: h.investmentGap,
+      affectedPopulation: h.affectedPopulation,
+      citizenRequestCount: h.citizenRequestCount,
+      priorityScore: h.avgPriorityScore, // kept for backward compatibility with existing consumers of this field name
+      hotspotScore: h.hotspotScore, // NEW — the genuinely distinct district-level score
+      recommendation: h.recommendation,
+      priorityLevel: getPriorityLevel(h.hotspotScore),
+      whyHotspot: explainFactors({
+        demandScore: h.citizenRequestCount ? Math.min(100, h.citizenRequestCount * 5) : 0, // rough volume-based signal for explanation text only, not used in hotspotScore itself
+        infrastructureGap: h.infrastructureGap,
+        populationImpact: null,
+        urgencyScore: null,
+        investmentGap: h.investmentGap,
+        citizenRequestCount: h.citizenRequestCount,
+      }).filter((f) => f.value >= 65).map((f) => f.factor),
     }));
 
     res.status(200).json({ success: true, hotspots });

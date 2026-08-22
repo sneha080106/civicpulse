@@ -26,60 +26,85 @@ const getRequests = async (req, res, next) => {
 const ALLOWED_SOURCES = ['text', 'voice', 'messaging'];
 const ALLOWED_LANGUAGES = ['en', 'hi', 'bn'];
 
+const createCitizenRequestCore = async ({
+  originalText, source, language, country, channel, senderId, messageId, sourceLanguageLabel,
+}) => {
+  const CitizenRequest = mongoose.model('CitizenRequest');
+  const { resolveCountryName, DEFAULT_COUNTRY_CODE } = require('../config/countries');
+
+  if (!originalText || typeof originalText !== 'string' || originalText.trim().length === 0) {
+    const err = new Error('originalText is required');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  let finalSource = 'text';
+  if (source !== undefined && source !== null) {
+    if (!ALLOWED_SOURCES.includes(source)) {
+      const err = new Error(`Invalid source "${source}". Must be one of: ${ALLOWED_SOURCES.join(', ')}`);
+      err.statusCode = 400;
+      throw err;
+    }
+    finalSource = source;
+  }
+
+  let finalLanguage = 'en';
+  if (language !== undefined && language !== null) {
+    if (!ALLOWED_LANGUAGES.includes(language)) {
+      const err = new Error(`Invalid language "${language}". Must be one of: ${ALLOWED_LANGUAGES.join(', ')}`);
+      err.statusCode = 400;
+      throw err;
+    }
+    finalLanguage = language;
+  }
+
+  let requestId = await generateRequestId(CitizenRequest);
+  let saved = null;
+
+  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+    try {
+      const doc = new CitizenRequest({
+        requestId,
+        originalText: originalText.trim(),
+        language: finalLanguage,
+        category: 'Other',
+        source: finalSource,
+        ...(country ? { location: { country: resolveCountryName(country || DEFAULT_COUNTRY_CODE) } } : {}),
+        ...(channel !== undefined ? { channel } : {}),
+        ...(senderId !== undefined ? { senderId } : {}),
+        ...(messageId !== undefined ? { messageId } : {}),
+        ...(sourceLanguageLabel !== undefined ? { sourceLanguageLabel } : {}),
+      });
+      saved = await doc.save();
+    } catch (err) {
+      if (err.code === 11000) { requestId = await generateRequestId(CitizenRequest); continue; }
+      throw err;
+    }
+  }
+
+  if (!saved) {
+    const err = new Error('Unable to generate a unique request ID');
+    err.statusCode = 500;
+    throw err;
+  }
+
+  return saved;
+};
+
 const createRequest = async (req, res, next) => {
   try {
-    const CitizenRequest = mongoose.model('CitizenRequest');
     const { originalText, source, language, country } = req.body;
-
-    if (!originalText || typeof originalText !== 'string' || originalText.trim().length === 0) {
-      return res.status(400).json({ success: false, message: 'originalText is required' });
-    }
-
-    let finalSource = 'text';
-    if (source !== undefined && source !== null) {
-      if (!ALLOWED_SOURCES.includes(source)) {
-        return res.status(400).json({ success: false, message: `Invalid source "${source}". Must be one of: ${ALLOWED_SOURCES.join(', ')}` });
-      }
-      finalSource = source;
-    }
-
-    let finalLanguage = 'en';
-    if (language !== undefined && language !== null) {
-      if (!ALLOWED_LANGUAGES.includes(language)) {
-        return res.status(400).json({ success: false, message: `Invalid language "${language}". Must be one of: ${ALLOWED_LANGUAGES.join(', ')}` });
-      }
-      finalLanguage = language;
-    }
-
-    let requestId = await generateRequestId(CitizenRequest);
-    let saved = null;
-
-    for (let attempt = 0; attempt < 3 && !saved; attempt++) {
-      try {
-      const doc = new CitizenRequest({
-  requestId,
-  originalText: originalText.trim(),
-  language: finalLanguage,
-  category: 'Other',
-  source: finalSource,
-  ...(country ? { location: { country } } : {}),
-});
-        saved = await doc.save();
-      } catch (err) {
-        if (err.code === 11000) { requestId = await generateRequestId(CitizenRequest); continue; }
-        throw err;
-      }
-    }
-
-    if (!saved) {
-      return res.status(500).json({ success: false, message: 'Unable to generate a unique request ID' });
-    }
+    const saved = await createCitizenRequestCore({ originalText, source, language, country });
 
     res.status(201).json({
       success: true,
-      data: { requestId: saved.requestId, originalText: saved.originalText, source: saved.source, language: saved.language, status: 'received', timestamp: saved.timestamp },
+      data: {
+        requestId: saved.requestId, originalText: saved.originalText, source: saved.source,
+        language: saved.language, status: 'received', timestamp: saved.timestamp,
+      },
     });
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ success: false, message: err.message });
     next(err);
   }
 };
@@ -161,4 +186,4 @@ const analyzeRequest = async (req, res, next) => {
   }
 };
 
-module.exports = { getRequests, createRequest, analyzeRequest };
+module.exports = { getRequests, createRequest, analyzeRequest, createCitizenRequestCore };

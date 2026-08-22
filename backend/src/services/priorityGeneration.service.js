@@ -15,14 +15,16 @@ const generateAllPriorityResults = async () => {
   const Investment = mongoose.model('Investment');
 
   const combos = await CitizenRequest.aggregate([
-    { $group: { _id: { district: '$location.district', sector: '$category' } } },
-  ]);
+  { $group: { _id: { district: '$location.district', sector: '$category', country: '$location.country' } } },
+]);
 
   if (combos.length === 0) {
     return { results: [], warnings: ['No citizen requests found — nothing to analyze'] };
   }
 
-  const demographicByDistrict = new Map((await Demographic.find({})).map((d) => [d.district, d]));
+  const demographicByDistrict = new Map(
+  (await Demographic.find({})).map((d) => [`${d.country}::${d.district}`, d])
+);
   const infrastructureByRegionId = new Map((await Infrastructure.find({})).map((i) => [i.regionId, i]));
 
   const raw = [];
@@ -30,7 +32,8 @@ const generateAllPriorityResults = async () => {
     const { district, sector } = combo._id;
     const warnings = [];
 
-    const demographic = demographicByDistrict.get(district);
+    const requestCountry = combo._id.country; // see aggregation change below
+const demographic = demographicByDistrict.get(`${requestCountry}::${district}`);
     if (!demographic) warnings.push(`Missing demographic record for district "${district}"`);
     const regionId = demographic ? demographic.regionId : null;
 
