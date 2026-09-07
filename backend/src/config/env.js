@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const requiredVars = ['PORT', 'MONGODB_URI'];
+const requiredVars = ['PORT', 'MONGODB_URI', 'JWT_SECRET'];
 
 requiredVars.forEach((key) => {
   if (!process.env[key]) {
@@ -19,4 +19,6 @@ module.exports = {
   LLM_MODEL: process.env.LLM_MODEL || '',
   AI_MOCK_MODE,
   CORS_ORIGIN,
+  JWT_SECRET: process.env.JWT_SECRET,
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
 };

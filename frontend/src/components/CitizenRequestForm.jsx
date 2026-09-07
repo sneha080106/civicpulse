@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { createCitizenRequest, analyzeRequest, triggerAnalyticsRecalculation } from '../services/api';
 import AIUnderstandingCard from './AIUnderstandingCard'; // reused as-is from Step 9 — not duplicated
+import { useAuth } from '../context/AuthContext';
+import RequireLoginNotice from './RequireLoginNotice';
 
 const CATEGORIES = [
   'Roads & Transport', 'Healthcare', 'Education', 'Water & Sanitation',
@@ -22,6 +24,7 @@ const STAGE_LABELS = {
 };
 
 const CitizenRequestForm = ({ onSubmitted }) => {
+  const { isAuthenticated } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [stage, setStage] = useState('idle');
 
@@ -37,6 +40,10 @@ const CitizenRequestForm = ({ onSubmitted }) => {
   const [recalcError, setRecalcError] = useState(null);
 
   const updateField = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+
+  if (!isAuthenticated) {
+    return <RequireLoginNotice message="Log in to submit an infrastructure request from the Dashboard." />;
+  }
 
   const validate = () => {
     if (!form.state.trim()) return 'State is required.';

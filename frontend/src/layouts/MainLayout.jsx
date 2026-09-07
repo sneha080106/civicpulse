@@ -1,5 +1,6 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import BackendStatus from '../components/BackendStatus';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { to: '/', label: 'Overview', end: true },
@@ -10,6 +11,14 @@ const navItems = [
 ];
 
 const MainLayout = () => {
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -32,6 +41,23 @@ const MainLayout = () => {
         </nav>
 
         <div className="sidebar-footer">
+          {isAuthenticated ? (
+            <div className="form-hint" style={{ marginBottom: '8px' }}>
+              Logged in as {user?.email} ({user?.role})
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ display: 'block', marginTop: '8px', width: '100%' }}
+                onClick={handleLogout}
+              >
+                Log Out
+              </button>
+            </div>
+          ) : (
+            <NavLink to="/login" className="sidebar-link">
+              Log In
+            </NavLink>
+          )}
           <BackendStatus />
         </div>
       </aside>

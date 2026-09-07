@@ -6,6 +6,8 @@ import DashboardPage from './pages/DashboardPage';
 import PrioritiesPage from './pages/PrioritiesPage';
 import PriorityDetailPage from './pages/PriorityDetailPage';
 import MessagingSimulatorPage from './pages/MessagingSimulatorPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 
 const App = () => {
   return (
@@ -17,6 +19,8 @@ const App = () => {
         <Route path="/priorities" element={<PrioritiesPage />} />
         <Route path="/priorities/:id" element={<PriorityDetailPage />} />
         <Route path="/messaging-simulator" element={<MessagingSimulatorPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
       </Route>
     </Routes>
   );

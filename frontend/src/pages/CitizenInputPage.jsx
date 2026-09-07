@@ -3,7 +3,9 @@ import { createRequest, analyzeRequest, triggerAnalyticsRecalculation } from '..
 import AIUnderstandingCard from '../components/AIUnderstandingCard';
 import VoiceInputButton from '../components/VoiceInputButton';
 import { useCountry } from '../context/CountryContext';
+import { useAuth } from '../context/AuthContext';
 import LanguageSelector from '../components/LanguageSelector';
+import RequireLoginNotice from '../components/RequireLoginNotice';
 
 const SOURCES = [
   { id: 'text', label: 'Text', enabled: true },
@@ -13,6 +15,7 @@ const SOURCES = [
 // idle -> submitting -> analyzing -> analyzed | submit_error | analyze_error
 const CitizenInputPage = () => {
   const { country } = useCountry();
+  const { isAuthenticated } = useAuth();
   const [text, setText] = useState('');
   const [source, setSource] = useState('text');
   const [status, setStatus] = useState('idle');
@@ -81,6 +84,9 @@ const CitizenInputPage = () => {
         <p>Describe the issue in your own words. AI will extract structured information from your message before it enters the priority system.</p>
       </div>
 
+      {!isAuthenticated ? (
+        <RequireLoginNotice message="You need to log in to submit an infrastructure request." />
+      ) : (
       <div className="surface-card section-block" style={{ maxWidth: 640 }}>
         <form onSubmit={handleSubmit}>
           <div className="form-field">
@@ -158,6 +164,7 @@ const CitizenInputPage = () => {
           </div>
         )}
       </div>
+      )}
 
       {status === 'analyzed' && analysis && (
         <AIUnderstandingCard

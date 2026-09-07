@@ -4,6 +4,26 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
 
 const api = axios.create({ baseURL, timeout: 20000 });
 
+// Attach the JWT (if present) to every outgoing request. Reading straight
+// from localStorage here keeps this file framework-agnostic and avoids a
+// circular import with AuthContext.
+api.interceptors.request.use((config) => {
+  try {
+    const raw = localStorage.getItem('civicpulse_auth');
+    const token = raw ? JSON.parse(raw)?.token : null;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // ignore malformed storage
+  }
+  return config;
+});
+
+export const registerRequest = async (payload) => (await api.post('/auth/register', payload)).data;
+export const loginRequest = async (payload) => (await api.post('/auth/login', payload)).data;
+export const fetchCurrentUser = async () => (await api.get('/auth/me')).data;
+
 export const checkBackendHealth = async () => (await api.get('/health')).data;
 export const fetchOverview = async (country) => (await api.get('/analytics/overview', { params: country ? { country } : {} })).data;
 export const fetchPriorities = async (params = {}) => (await api.get('/priorities', { params })).data;

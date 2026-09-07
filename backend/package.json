@@ -7,12 +7,15 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/seed/seedDatabase.js",
-    "seed:brics": "node src/seed/seedBricsData.js"
+    "seed:brics": "node src/seed/seedBricsData.js",
+    "seed:admin": "node src/scripts/seedAdmin.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^4.22.2",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.24.3"
   },
   "devDependencies": {

@@ -6,3 +6,4 @@ require('./Demographic');
 require('./Infrastructure');
 require('./Investment');
 require('./PriorityResult');
+require('./User');
