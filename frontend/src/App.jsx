@@ -8,6 +8,9 @@ import PriorityDetailPage from './pages/PriorityDetailPage';
 import MessagingSimulatorPage from './pages/MessagingSimulatorPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import AdminPage from './pages/AdminPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import { STAFF_ROLES } from './utils/roles';
 
 const App = () => {
   return (
@@ -21,6 +24,14 @@ const App = () => {
         <Route path="/messaging-simulator" element={<MessagingSimulatorPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute roles={STAFF_ROLES}>
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
     </Routes>
   );

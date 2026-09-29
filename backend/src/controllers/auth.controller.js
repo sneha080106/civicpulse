@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { signToken } = require('../utils/jwt');
+const { ROLES } = require('../utils/roles');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -29,7 +30,7 @@ const register = async (req, res, next) => {
       name: name ? name.trim() : undefined,
       email: email.toLowerCase().trim(),
       password,
-      role: 'citizen',
+      role: ROLES.CITIZEN,
     });
 
     const token = signToken(user);
@@ -37,7 +38,7 @@ const register = async (req, res, next) => {
       success: true,
       data: {
         token,
-        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        user: user.toPublic(),
       },
     });
   } catch (err) {
@@ -67,12 +68,19 @@ const login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
+    if (user.isActive === false) {
+      return res.status(403).json({ success: false, message: 'This account has been deactivated. Contact your administrator.' });
+    }
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
     const token = signToken(user);
     res.status(200).json({
       success: true,
       data: {
         token,
-        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        user: user.toPublic(),
       },
     });
   } catch (err) {
@@ -90,7 +98,7 @@ const getMe = async (req, res, next) => {
     }
     res.status(200).json({
       success: true,
-      data: { id: user._id, name: user.name, email: user.email, role: user.role },
+      data: user.toPublic(),
     });
   } catch (err) {
     next(err);

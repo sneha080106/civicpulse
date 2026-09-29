@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isStaffRole } from '../utils/roles';
 
 const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo = location.state?.from || '/citizen';
+  const cameFrom = location.state?.from;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,8 +19,10 @@ const LoginPage = () => {
     setError('');
     setIsSubmitting(true);
     try {
-      await login(email.trim(), password);
-      navigate(redirectTo, { replace: true });
+      const loggedIn = await login(email.trim(), password);
+      // Go back to where they were headed; otherwise staff land on the
+      // control panel and citizens on the submission form.
+      navigate(cameFrom || (isStaffRole(loggedIn.role) ? '/admin' : '/citizen'), { replace: true });
     } catch (err) {
       setError(err?.response?.data?.message || 'Could not log in. Please check your credentials.');
     } finally {
@@ -32,7 +35,7 @@ const LoginPage = () => {
       <div className="page-header">
         <div className="page-header-eyebrow">Account</div>
         <h1>Log In</h1>
-        <p>Log in to submit an infrastructure request.</p>
+        <p>Log in to submit an infrastructure request, or to access the staff control panel.</p>
       </div>
 
       <div className="surface-card section-block" style={{ maxWidth: 420 }}>

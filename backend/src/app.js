@@ -13,6 +13,7 @@ const countryRoutes = require('./routes/country.routes');
 const countryDataRoutes = require('./routes/countryData.routes');
 const messagingRoutes = require('./routes/messaging.routes');
 const authRoutes = require('./routes/auth.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use(cors({origin: CORS_ORIGIN }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/citizen-requests', citizenRequestRoutes);

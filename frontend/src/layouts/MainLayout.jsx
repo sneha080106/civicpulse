@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import BackendStatus from '../components/BackendStatus';
 import { useAuth } from '../context/AuthContext';
+import { roleLabel } from '../utils/roles';
 
 const navItems = [
   { to: '/', label: 'Overview', end: true },
@@ -11,7 +12,7 @@ const navItems = [
 ];
 
 const MainLayout = () => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isStaff, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -28,7 +29,7 @@ const MainLayout = () => {
         </div>
 
         <nav className="sidebar-nav">
-          {navItems.map((item) => (
+          {[...navItems, ...(isStaff ? [{ to: '/admin', label: 'Admin Panel' }] : [])].map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -43,7 +44,7 @@ const MainLayout = () => {
         <div className="sidebar-footer">
           {isAuthenticated ? (
             <div className="form-hint" style={{ marginBottom: '8px' }}>
-              Logged in as {user?.email} ({user?.role})
+              Logged in as {user?.email} ({roleLabel(user?.role)})
               <button
                 type="button"
                 className="btn btn-secondary"

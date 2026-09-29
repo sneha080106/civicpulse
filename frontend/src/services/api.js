@@ -43,6 +43,14 @@ export const fetchCountrySummary = async (countryCode) => (await api.get(`/count
 // just the top few, and can find each district's single highest sector.
 export const fetchHotspots = async (limit = 100, country) => (await api.get('/analytics/hotspots', { params: { limit, ...(country ? { country } : {}) } })).data;
 
+// Staff-only (officer / admin / super_admin) — see backend request.routes.js
+export const recalculatePriorities = async () => (await api.post('/priorities/recalculate')).data;
+
+// Super-admin only — account management
+export const adminListUsers = async (params = {}) => (await api.get('/admin/users', { params })).data;
+export const adminCreateUser = async (payload) => (await api.post('/admin/users', payload)).data;
+export const adminUpdateUser = async (id, payload) => (await api.patch(`/admin/users/${id}`, payload)).data;
+
 export const submitCitizenRequest = createRequest;
 export const triggerAnalyticsRecalculation = async () => {
   const response = await api.post('/analytics/calculate');
