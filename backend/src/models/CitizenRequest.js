@@ -80,14 +80,7 @@ const citizenRequestSchema = new mongoose.Schema(
       state: { type: String, default: null },
       district: { type: String, default: null },
     },//step14
-     aiUnderstanding: {
-      language: { type: String, default: null },
-      translatedText: { type: String, default: null },
-      category: { type: String, default: null },
-      subCategory: { type: String, default: null },
-      problem: { type: String, default: null },
-
-          // Step 17: optional messaging-channel metadata. All fields default to
+    // Step 17: optional messaging-channel metadata. All fields default to
     // null and are never required — existing text/voice requests are
     // completely unaffected. messageId is intentionally NOT unique-indexed
     // (see messaging.controller.js's idempotency note) — a genuinely
@@ -97,7 +90,12 @@ const citizenRequestSchema = new mongoose.Schema(
     senderId: { type: String, default: null },
     messageId: { type: String, default: null },
     sourceLanguageLabel: { type: String, default: null },
-
+    aiUnderstanding: {
+      language: { type: String, default: null },
+      translatedText: { type: String, default: null },
+      category: { type: String, default: null },
+      subCategory: { type: String, default: null },
+      problem: { type: String, default: null },
       location: {
         country: { type: String, default: null },
         state: { type: String, default: null },
