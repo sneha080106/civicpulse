@@ -5,6 +5,7 @@ const { calculateAffectedPopulation, calculatePopulationImpactScore } = require(
 const { calculateInvestmentCoverageProxy, calculateInvestmentGap } = require('./investment.service');
 const { calculateUrgencyScore, computePriorityScore } = require('./priority.service');
 const { generateRecommendation } = require('./recommendation.service'); // Step 15
+const { normalizeLocationKey } = require('../utils/locationMatch');
 
 const round2Safe = (v) => (typeof v === 'number' && !Number.isNaN(v) ? Math.round(v * 100) / 100 : 0);
 
@@ -22,19 +23,35 @@ const generateAllPriorityResults = async () => {
     return { results: [], warnings: ['No citizen requests found — nothing to analyze'] };
   }
 
+  // Requests that differ only by casing/whitespace in country or district
+  // ("Ranchi" / "ranchi" / " Ranchi ") belong to ONE group. The raw district
+  // spellings are remembered so every variant's requests are still counted.
+  const groups = new Map();
+  for (const combo of combos) {
+    const { sector, country } = combo._id;
+    const district = combo._id.district === undefined ? null : combo._id.district;
+    const groupKey = `${normalizeLocationKey(country)}::${normalizeLocationKey(district)}::${sector}`;
+    if (!groups.has(groupKey)) groups.set(groupKey, { country, district, sector, rawDistricts: [] });
+    const group = groups.get(groupKey);
+    if (!group.rawDistricts.includes(district)) group.rawDistricts.push(district);
+  }
+
   const demographicByDistrict = new Map(
-  (await Demographic.find({})).map((d) => [`${d.country}::${d.district}`, d])
-);
+    (await Demographic.find({})).map((d) => [`${normalizeLocationKey(d.country)}::${normalizeLocationKey(d.district)}`, d])
+  );
   const infrastructureByRegionId = new Map((await Infrastructure.find({})).map((i) => [i.regionId, i]));
 
   const raw = [];
-  for (const combo of combos) {
-    const { district, sector } = combo._id;
+  for (const group of groups.values()) {
+    const { sector, rawDistricts } = group;
     const warnings = [];
 
-    const requestCountry = combo._id.country; // see aggregation change below
-const demographic = demographicByDistrict.get(`${requestCountry}::${district}`);
-    if (!demographic) warnings.push(`Missing demographic record for district "${district}"`);
+    const demographic = demographicByDistrict.get(
+      `${normalizeLocationKey(group.country)}::${normalizeLocationKey(group.district)}`
+    );
+    if (!demographic) warnings.push(`Missing demographic record for district "${group.district}"`);
+    // Report the region's canonical district name, not whichever spelling was typed.
+    const district = demographic ? demographic.district : group.district;
     const regionId = demographic ? demographic.regionId : null;
 
     const population = demographic && typeof demographic.population === 'number' ? demographic.population : 0;
@@ -44,7 +61,7 @@ const demographic = demographicByDistrict.get(`${requestCountry}::${district}`);
     if (!infrastructure) warnings.push('Missing infrastructure record for region');
     if (!isSectorSupported(sector)) warnings.push(`Sector "${sector}" not supported for infrastructure gap`);
 
-    const citizenRequests = await CitizenRequest.find({ 'location.district': district, category: sector });
+    const citizenRequests = await CitizenRequest.find({ 'location.district': { $in: rawDistricts }, category: sector });
 
     const demandRate = round2Safe(calculateDemandRate(citizenRequests.length, population));
     const demandScore = calculateDemandScore(citizenRequests.length, population);

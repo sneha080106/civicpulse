@@ -2,6 +2,8 @@
 // requestAnalysis.service.js — never used when AI_MOCK_MODE=false.
 // Uses simple script-range + keyword detection, no external calls.
 
+const { findRegionInText } = require('../../utils/locationMatch');
+
 const detectLanguage = (text) => {
   // Excludes U+0964/U+0965 (danda / double danda) — these punctuation marks
   // are shared across Devanagari, Bengali, and other Indic scripts, so they
@@ -54,20 +56,45 @@ const detectUrgency = (text) => {
   return 'MEDIUM';
 };
 
-/**
- * Mock mode NEVER fabricates location — it always returns null location
- * fields with LOW confidence, matching the real extraction rule exactly.
- */
-const mockAnalyzeCitizenRequest = (text) => ({
-  language: detectLanguage(text),
-  translatedText: detectLanguage(text) === 'en' ? text : `[MOCK TRANSLATION] ${text}`,
-  category: detectCategory(text),
-  subCategory: null,
-  problem: text.length > 120 ? `${text.slice(0, 120)}...` : text,
+const noLocation = () => ({
   location: { country: null, state: null, district: null },
   locationConfidence: 'LOW',
-  urgency: detectUrgency(text),
-  confidence: 0.5,
 });
+
+/**
+ * Mock mode NEVER fabricates a location. A location is returned only when the
+ * text names exactly ONE supported district verbatim (matched against the
+ * `regions` list supplied by the caller — the same Demographic data the
+ * priority engine uses). Anything else — no district named, two districts
+ * named, or no region list supplied — yields null fields with LOW confidence.
+ *
+ * Country and state come from the matched region record (they are properties
+ * of that district), not from guessing. Names are matched as they are stored
+ * (Latin script); this mock does not transliterate.
+ */
+const detectLocation = (text, regions) => {
+  const { region, stateMentioned } = findRegionInText(text, regions);
+  if (!region) return noLocation();
+  return {
+    location: { country: region.country, state: region.state || null, district: region.district },
+    locationConfidence: stateMentioned ? 'HIGH' : 'MEDIUM',
+  };
+};
+
+const mockAnalyzeCitizenRequest = (text, { regions = [] } = {}) => {
+  const language = detectLanguage(text);
+  const { location, locationConfidence } = detectLocation(text, regions);
+  return {
+    language,
+    translatedText: language === 'en' ? text : `[MOCK TRANSLATION] ${text}`,
+    category: detectCategory(text),
+    subCategory: null,
+    problem: text.length > 120 ? `${text.slice(0, 120)}...` : text,
+    location,
+    locationConfidence,
+    urgency: detectUrgency(text),
+    confidence: 0.5,
+  };
+};
 
 module.exports = { mockAnalyzeCitizenRequest };

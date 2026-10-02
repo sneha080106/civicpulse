@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { sanitizeFilterValue } = require('../utils/query');
 const { analyzeCitizenRequest } = require('../services/ai/requestAnalysis.service');
 const { generateRequestId } = require('../utils/requestId');
+const { getSupportedRegions } = require('../services/regionRegistry.service');
 
 const getRequests = async (req, res, next) => {
   try {
@@ -110,6 +111,27 @@ const createRequest = async (req, res, next) => {
 };
 
 /**
+ * Combines the location a request already has (e.g. the country set when it was
+ * created) with what AI analysis found, so analysis never erases known data.
+ *  - AI resolved a district: the supported region's own country/state/district
+ *    win, because the district and its country must stay a matching pair.
+ *  - AI found no district: the already-known country is kept (AI's country is
+ *    only a fallback), and existing state/district are kept unless AI has newer.
+ */
+const mergeLocation = (existing, found) => {
+  const known = existing || {};
+  const next = found || {};
+  const hasDistrict = Boolean(next.district);
+  return {
+    country: hasDistrict
+      ? (next.country || known.country || null)
+      : (known.country || next.country || null),
+    state: next.state || known.state || null,
+    district: next.district || known.district || null,
+  };
+};
+
+/**
  * Step 14 (Issue 1 fix): AI output is always stored in full under
  * `aiUnderstanding`. Top-level category/urgency/location/locationConfidence
  * are ONLY overwritten when the request has no citizenProvided selection
@@ -134,15 +156,26 @@ const analyzeRequest = async (req, res, next) => {
       return res.status(404).json({ success: false, message: `Request "${requestId}" not found` });
     }
 
+    const hasCitizenSelection = Boolean(request.citizenProvided && request.citizenProvided.category);
+
     let analysis;
     try {
-      analysis = await analyzeCitizenRequest(request.originalText);
+      if (hasCitizenSelection) {
+        // Structured path: unchanged — the citizen already chose the location.
+        analysis = await analyzeCitizenRequest(request.originalText);
+      } else {
+        // Free-text path: give the analysis the supported regions so it can
+        // return a district the priority engine will recognize.
+        const regions = await getSupportedRegions();
+        analysis = await analyzeCitizenRequest(request.originalText, {
+          regions,
+          countryHint: request.location && request.location.country,
+        });
+      }
     } catch (err) {
       console.error('AI analysis error:', err);
       return res.status(502).json({ success: false, message: 'Unable to analyze the request at this time.' });
     }
-
-    const hasCitizenSelection = Boolean(request.citizenProvided && request.citizenProvided.category);
 
     // Always store the AI's own full read, regardless of authority rules below.
     request.aiUnderstanding = {
@@ -167,7 +200,14 @@ const analyzeRequest = async (req, res, next) => {
       // Free-text path — unchanged behavior from Step 6/9/13.
       request.language = analysis.language;
       request.category = analysis.category;
-      request.location = { ...analysis.location };
+      // Merge instead of overwrite so a country that was already known (set when
+      // the request was created) is not erased by an analysis with no location.
+      request.location = mergeLocation(
+        { country: request.location && request.location.country,
+          state: request.location && request.location.state,
+          district: request.location && request.location.district },
+        analysis.location
+      );
       request.locationConfidence = analysis.locationConfidence;
       request.urgency = analysis.urgency;
       request.confidence = analysis.confidence;
