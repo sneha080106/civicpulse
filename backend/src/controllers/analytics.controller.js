@@ -8,18 +8,34 @@ const getOverview = async (req, res, next) => {
     const CitizenRequest = mongoose.model('CitizenRequest');
     const PriorityResult = mongoose.model('PriorityResult');
 
-    const totalRequests = await CitizenRequest.countDocuments();
-    const regionsAnalyzed = (await CitizenRequest.distinct('location.district')).length;
-    const languages = await CitizenRequest.distinct('language');
+    // Optional ?country=<code> (the Dashboard's country selector). Without it
+    // the filters below are empty objects, so behaviour is identical to before.
+    // Requests store the full country name ("India"), as getHotspots also assumes.
+    const countryCode = sanitizeFilterValue(req.query.country);
+    let requestFilter = {};
+    let priorityFilter = {};
+    if (countryCode) {
+      const { resolveCountryName } = require('../config/countries');
+      const countryName = resolveCountryName(countryCode);
+      requestFilter = { 'location.country': countryName };
+      const Demographic = mongoose.model('Demographic');
+      const regionIds = (await Demographic.find({ country: countryName })).map((d) => d.regionId);
+      priorityFilter = { regionId: { $in: regionIds } };
+    }
+
+    const totalRequests = await CitizenRequest.countDocuments(requestFilter);
+    const regionsAnalyzed = (await CitizenRequest.distinct('location.district', requestFilter)).length;
+    const languages = await CitizenRequest.distinct('language', requestFilter);
 
     const topConcernAgg = await CitizenRequest.aggregate([
+      ...(countryCode ? [{ $match: requestFilter }] : []),
       { $group: { _id: '$category', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
       { $limit: 1 },
     ]);
     const topConcern = topConcernAgg.length > 0 ? topConcernAgg[0]._id : null;
 
-    const topPriority = await PriorityResult.findOne().sort({ priorityScore: -1 });
+    const topPriority = await PriorityResult.findOne(priorityFilter).sort({ priorityScore: -1 });
     const highestPriorityRegion = topPriority ? topPriority.district : null;
 
     res.status(200).json({

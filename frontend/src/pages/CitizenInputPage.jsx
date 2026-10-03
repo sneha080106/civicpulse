@@ -6,6 +6,7 @@ import { useCountry } from '../context/CountryContext';
 import { useAuth } from '../context/AuthContext';
 import LanguageSelector from '../components/LanguageSelector';
 import RequireLoginNotice from '../components/RequireLoginNotice';
+import { buildFreeTextPayload } from '../utils/requestPayloads';
 
 const SOURCES = [
   { id: 'text', label: 'Text', enabled: true },
@@ -26,12 +27,16 @@ const CitizenInputPage = () => {
     // add alongside existing useState declarations:
   const [recalcWarning, setRecalcWarning] = useState('');
   const [inputLanguage, setInputLanguage] = useState('en');
+  // Set when text was dictated; holds the language the dictation used.
+  // null = the text was typed, so the request is sent as a normal text request.
+  const [voiceLanguage, setVoiceLanguage] = useState(null);
 
   const resetForNewSubmission = () => {
     setRequestId(null);
     setAnalysis(null);
     setConfirmed(false);
     setErrorMessage('');
+    setRecalcWarning(''); // a warning from an earlier submission must not carry over
   };
 
   const handleSubmit = async (event) => {
@@ -43,7 +48,7 @@ const CitizenInputPage = () => {
 
     let createdId;
     try {
-    const response = await createRequest({ originalText: text.trim(), source, country });
+    const response = await createRequest(buildFreeTextPayload({ text, source, country, voiceLanguage }));
       createdId = response.data.requestId;
       setRequestId(createdId);
     } catch (err) {
@@ -59,6 +64,7 @@ const CitizenInputPage = () => {
       setAnalysis(analyzeResponse.data.analysis);
       setStatus('analyzed');
       setText('');
+      setVoiceLanguage(null);
     } catch (err) {
       const backendMessage = err?.response?.data?.message;
       setErrorMessage(backendMessage || 'Unable to analyze the request at this time.');
@@ -94,7 +100,10 @@ const CitizenInputPage = () => {
             <textarea
               id="request-text"
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                if (!e.target.value.trim()) setVoiceLanguage(null); // cleared -> no longer a voice request
+              }}
               placeholder="e.g. Ranchi mein government hospital bahut door hai."
               maxLength={2000}
               required
@@ -104,7 +113,10 @@ const CitizenInputPage = () => {
           <LanguageSelector value={inputLanguage} onChange={setInputLanguage} disabled={isBusy} />
           <VoiceInputButton
           languageCode={inputLanguage}
-          onTranscript={(transcript) => setText((prev) => (prev ? `${prev} ${transcript}` : transcript))}
+          onTranscript={(transcript) => {
+            setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+            setVoiceLanguage(inputLanguage); // language this dictation was recognised in
+          }}
           disabled={isBusy}
 />
 

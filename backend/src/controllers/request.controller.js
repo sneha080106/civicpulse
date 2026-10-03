@@ -3,6 +3,7 @@ const { sanitizeFilterValue } = require('../utils/query');
 const { analyzeCitizenRequest } = require('../services/ai/requestAnalysis.service');
 const { generateRequestId } = require('../utils/requestId');
 const { getSupportedRegions } = require('../services/regionRegistry.service');
+const { VALID_LANGUAGES } = require('../utils/requestValidation');
 
 const getRequests = async (req, res, next) => {
   try {
@@ -25,7 +26,10 @@ const getRequests = async (req, res, next) => {
 };
 
 const ALLOWED_SOURCES = ['text', 'voice', 'messaging'];
-const ALLOWED_LANGUAGES = ['en', 'hi', 'bn'];
+// Same list the CitizenRequest model's `language` enum already accepts. The
+// /citizen page's language dropdown offers all of these for voice input, so a
+// narrower list here would reject (400) e.g. a Telugu voice submission.
+const ALLOWED_LANGUAGES = VALID_LANGUAGES;
 
 const createCitizenRequestCore = async ({
   originalText, source, language, country, channel, senderId, messageId, sourceLanguageLabel,

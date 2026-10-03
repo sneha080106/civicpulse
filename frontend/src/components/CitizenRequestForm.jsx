@@ -3,6 +3,8 @@ import { createCitizenRequest, analyzeRequest, triggerAnalyticsRecalculation } f
 import AIUnderstandingCard from './AIUnderstandingCard'; // reused as-is from Step 9 — not duplicated
 import { useAuth } from '../context/AuthContext';
 import RequireLoginNotice from './RequireLoginNotice';
+import { useCountry } from '../context/CountryContext';
+import { buildStructuredPayload, STRUCTURED_LANGUAGES } from '../utils/requestPayloads';
 
 const CATEGORIES = [
   'Roads & Transport', 'Healthcare', 'Education', 'Water & Sanitation',
@@ -11,7 +13,7 @@ const CATEGORIES = [
 const URGENCY_LEVELS = ['LOW', 'MEDIUM', 'HIGH'];
 
 const initialForm = {
-  state: '', district: '', category: '', description: '', urgency: '', affectedPopulationEstimate: '',
+  state: '', district: '', category: '', description: '', urgency: '', affectedPopulationEstimate: '', language: 'en',
 };
 
 // Pipeline stages, in the exact order Step 13 requires:
@@ -25,6 +27,7 @@ const STAGE_LABELS = {
 
 const CitizenRequestForm = ({ onSubmitted }) => {
   const { isAuthenticated } = useAuth();
+  const { country } = useCountry(); // selected in the Dashboard's country selector
   const [form, setForm] = useState(initialForm);
   const [stage, setStage] = useState('idle');
 
@@ -80,14 +83,7 @@ const CitizenRequestForm = ({ onSubmitted }) => {
     // --- Stage 1: store in MongoDB ---
     let requestId;
     try {
-      const response = await createCitizenRequest({
-        state: form.state.trim(),
-        district: form.district.trim(),
-        category: form.category,
-        description: form.description.trim(),
-        urgency: form.urgency,
-        affectedPopulationEstimate: form.affectedPopulationEstimate ? Number(form.affectedPopulationEstimate) : undefined,
-      });
+      const response = await createCitizenRequest(buildStructuredPayload(form, country));
       requestId = response.data.requestId;
       setSubmittedSummary({
         requestId,
@@ -158,6 +154,13 @@ const CitizenRequestForm = ({ onSubmitted }) => {
               {URGENCY_LEVELS.map((u) => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
+        </div>
+
+        <div className="form-field" style={{ maxWidth: 220 }}>
+          <label className="form-label" htmlFor="crf-language">Language of description</label>
+          <select id="crf-language" value={form.language} onChange={updateField('language')} disabled={isBusy}>
+            {STRUCTURED_LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+          </select>
         </div>
 
         <div className="form-field">

@@ -114,7 +114,7 @@ const DashboardPage = () => {
           )}
 
           <h2 style={{ marginTop: '32px' }}>Priority Ranking</h2>
-          <p className="form-hint" style={{ marginTop: '-8px', marginBottom: '12px' }}>Regions ranked by concentrated citizen demand (hotspot score) — not the same as individual priority scores.</p>
+          <p className="form-hint" style={{ marginTop: '-8px', marginBottom: '12px' }}>Region and sector combinations ranked by priority score — not the same as the hotspot score used above.</p>
           {isLoading && <LoadingState label="Loading priority ranking..." />}
 
           {status === 'success' && topPriorities.length === 0 && (
