@@ -11,7 +11,17 @@ process.env.PORT = process.env.PORT || '5000';
 process.env.MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:1/unused';
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'probe-secret';
 
+require('../models');
+const mongoose = require('mongoose');
 const CitizenRequest = require('../models/CitizenRequest');
+
+// The webhook now also analyzes the stored message and rebuilds priorities
+// (audit Item 4; covered by testMessagingPipeline.js). This probe is only about
+// metadata persistence and idempotency, so keep those two steps inert here:
+// no region list, and a no-op priority rebuild (installed before the controller
+// is loaded, because it takes the function at require time).
+mongoose.model('Demographic').find = () => ({ lean: async () => [] });
+require('../services/priorityGeneration.service').regenerateAllPriorityResults = async () => ({ count: 0, regionsAnalyzed: 0, staleRemoved: 0, warnings: [] });
 const { receiveMessage } = require('../controllers/messaging.controller');
 
 let passCount = 0;
@@ -60,7 +70,11 @@ let lastCastFilter = null;
 CitizenRequest.countDocuments = async () => store.length;
 CitizenRequest.prototype.save = async function save() {
   await this.validate();
-  store.push(this.toObject()); // exactly what Mongoose would write to MongoDB
+  // What Mongoose would write to MongoDB. A second save of the same request
+  // (the webhook's analysis step) updates that document, it does not add one.
+  const written = this.toObject();
+  const at = store.findIndex((doc) => doc.requestId === written.requestId);
+  if (at === -1) store.push(written); else store[at] = written;
   return this;
 };
 CitizenRequest.findOne = async (filter) => {

@@ -1,8 +1,15 @@
 const mongoose = require('mongoose');
 const { resolveCountryName, DEFAULT_COUNTRY_CODE, getCountryByCode } = require('../config/countries');
-const { createCitizenRequestCore } = require('./request.controller');
+const { createCitizenRequestCore, analyzeAndStoreRequest } = require('./request.controller');
+const { regenerateAllPriorityResults } = require('../services/priorityGeneration.service');
+const { createCoalescedRunner } = require('../utils/coalescedRunner');
 
 const SUPPORTED_CHANNELS = ['whatsapp', 'telegram', 'sms'];
+
+// Every message triggers a full priority rebuild. Rebuilds delete results that
+// are missing from their own snapshot, so a burst of messages must not run
+// them concurrently — this runs them one at a time and merges queued callers.
+const recalculatePriorities = createCoalescedRunner(() => regenerateAllPriorityResults());
 
 /**
  * POST /api/messaging/webhook
@@ -14,6 +21,13 @@ const SUPPORTED_CHANNELS = ['whatsapp', 'telegram', 'sms'];
  * No separate AI/scoring/recommendation logic exists here — everything
  * downstream of storage (analyze, priority, recommendation) is the
  * existing, untouched system.
+ *
+ * After the request is stored the webhook itself runs the existing analysis
+ * (the same analyzeAndStoreRequest used by POST /api/requests/analyze) and then
+ * the existing priority recalculation, so a message needs no logged-in browser
+ * to become a located, scored request. Both steps are best-effort: if either
+ * fails the message is still saved and acknowledged (201) and the response says
+ * which step did not complete, so the provider does not retry and duplicate it.
  *
  * This is a simulator endpoint — no real WhatsApp/Telegram/Twilio
  * credentials are used or required.
@@ -78,12 +92,36 @@ const receiveMessage = async (req, res, next) => {
 
     const saved = await createCitizenRequestCore(normalized);
 
+    // --- Analysis, then priorities (each best-effort) ---
+    let analysis = null;
+    let prioritiesUpdated = false;
+    try {
+      ({ analysis } = await analyzeAndStoreRequest(saved));
+    } catch (err) {
+      // analysisFailed errors were already logged by analyzeAndStoreRequest.
+      if (!err.analysisFailed) console.error('Messaging analysis error:', err);
+    }
+
+    // Only a successfully analyzed request can change the scores (until then it
+    // has no category or district), so there is nothing to rebuild otherwise.
+    if (analysis) {
+      try {
+        await recalculatePriorities();
+        prioritiesUpdated = true;
+      } catch (err) {
+        console.error('Messaging priority recalculation error:', err);
+      }
+    }
+
     res.status(201).json({
       success: true,
       data: {
         requestId: saved.requestId,
         status: 'received',
         channel: normalized.channel,
+        analysisStatus: analysis ? 'completed' : 'failed',
+        prioritiesUpdated,
+        analysis,
       },
     });
   } catch (err) {

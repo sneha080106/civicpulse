@@ -146,6 +146,73 @@ const mergeLocation = (existing, found) => {
  * still enriched from AI, since those are enrichments, not selections the
  * citizen explicitly made.
  */
+const analyzeAndStoreRequest = async (request) => {
+  const hasCitizenSelection = Boolean(request.citizenProvided && request.citizenProvided.category);
+
+  let analysis;
+  try {
+    if (hasCitizenSelection) {
+      // Structured path: unchanged — the citizen already chose the location.
+      analysis = await analyzeCitizenRequest(request.originalText);
+    } else {
+      // Free-text path: give the analysis the supported regions so it can
+      // return a district the priority engine will recognize.
+      const regions = await getSupportedRegions();
+      analysis = await analyzeCitizenRequest(request.originalText, {
+        regions,
+        countryHint: request.location && request.location.country,
+      });
+    }
+  } catch (err) {
+    console.error('AI analysis error:', err);
+    const failure = new Error('Unable to analyze the request at this time.');
+    failure.analysisFailed = true;
+    throw failure;
+  }
+
+  // Always store the AI's own full read, regardless of authority rules below.
+  request.aiUnderstanding = {
+    language: analysis.language,
+    translatedText: analysis.translatedText,
+    category: analysis.category,
+    subCategory: analysis.subCategory,
+    problem: analysis.problem,
+    location: { ...analysis.location },
+    locationConfidence: analysis.locationConfidence,
+    urgency: analysis.urgency,
+    confidence: analysis.confidence,
+    analyzedAt: new Date(),
+  };
+
+  // Enrichment fields — safe to update regardless of submission path.
+  request.translatedText = analysis.translatedText;
+  request.subCategory = analysis.subCategory;
+  request.problem = analysis.problem;
+
+  if (!hasCitizenSelection) {
+    // Free-text path — unchanged behavior from Step 6/9/13.
+    request.language = analysis.language;
+    request.category = analysis.category;
+    // Merge instead of overwrite so a country that was already known (set when
+    // the request was created) is not erased by an analysis with no location.
+    request.location = mergeLocation(
+      { country: request.location && request.location.country,
+        state: request.location && request.location.state,
+        district: request.location && request.location.district },
+      analysis.location
+    );
+    request.locationConfidence = analysis.locationConfidence;
+    request.urgency = analysis.urgency;
+    request.confidence = analysis.confidence;
+  }
+  // else: structured path — top-level category/urgency/location/
+  // locationConfidence/confidence stay exactly as the citizen set them.
+
+  await request.save();
+
+  return { analysis, hasCitizenSelection };
+};
+
 const analyzeRequest = async (req, res, next) => {
   try {
     const CitizenRequest = mongoose.model('CitizenRequest');
@@ -160,74 +227,23 @@ const analyzeRequest = async (req, res, next) => {
       return res.status(404).json({ success: false, message: `Request "${requestId}" not found` });
     }
 
-    const hasCitizenSelection = Boolean(request.citizenProvided && request.citizenProvided.category);
-
-    let analysis;
+    let result;
     try {
-      if (hasCitizenSelection) {
-        // Structured path: unchanged — the citizen already chose the location.
-        analysis = await analyzeCitizenRequest(request.originalText);
-      } else {
-        // Free-text path: give the analysis the supported regions so it can
-        // return a district the priority engine will recognize.
-        const regions = await getSupportedRegions();
-        analysis = await analyzeCitizenRequest(request.originalText, {
-          regions,
-          countryHint: request.location && request.location.country,
-        });
-      }
+      result = await analyzeAndStoreRequest(request);
     } catch (err) {
-      console.error('AI analysis error:', err);
-      return res.status(502).json({ success: false, message: 'Unable to analyze the request at this time.' });
+      if (err.analysisFailed) {
+        return res.status(502).json({ success: false, message: 'Unable to analyze the request at this time.' });
+      }
+      throw err;
     }
-
-    // Always store the AI's own full read, regardless of authority rules below.
-    request.aiUnderstanding = {
-      language: analysis.language,
-      translatedText: analysis.translatedText,
-      category: analysis.category,
-      subCategory: analysis.subCategory,
-      problem: analysis.problem,
-      location: { ...analysis.location },
-      locationConfidence: analysis.locationConfidence,
-      urgency: analysis.urgency,
-      confidence: analysis.confidence,
-      analyzedAt: new Date(),
-    };
-
-    // Enrichment fields — safe to update regardless of submission path.
-    request.translatedText = analysis.translatedText;
-    request.subCategory = analysis.subCategory;
-    request.problem = analysis.problem;
-
-    if (!hasCitizenSelection) {
-      // Free-text path — unchanged behavior from Step 6/9/13.
-      request.language = analysis.language;
-      request.category = analysis.category;
-      // Merge instead of overwrite so a country that was already known (set when
-      // the request was created) is not erased by an analysis with no location.
-      request.location = mergeLocation(
-        { country: request.location && request.location.country,
-          state: request.location && request.location.state,
-          district: request.location && request.location.district },
-        analysis.location
-      );
-      request.locationConfidence = analysis.locationConfidence;
-      request.urgency = analysis.urgency;
-      request.confidence = analysis.confidence;
-    }
-    // else: structured path — top-level category/urgency/location/
-    // locationConfidence/confidence stay exactly as the citizen set them.
-
-    await request.save();
 
     res.status(200).json({
       success: true,
-      data: { requestId: request.requestId, analysis, citizenSelectionPreserved: hasCitizenSelection },
+      data: { requestId: request.requestId, analysis: result.analysis, citizenSelectionPreserved: result.hasCitizenSelection },
     });
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { getRequests, createRequest, analyzeRequest, createCitizenRequestCore };
+module.exports = { getRequests, createRequest, analyzeRequest, analyzeAndStoreRequest, createCitizenRequestCore };

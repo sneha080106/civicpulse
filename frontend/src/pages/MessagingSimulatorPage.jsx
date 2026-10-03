@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { submitMessagingRequest, analyzeRequest } from '../services/api';
+import { submitMessagingRequest } from '../services/api';
 import AIUnderstandingCard from '../components/AIUnderstandingCard';
 
 const CHANNELS = [
@@ -16,7 +16,8 @@ const COUNTRIES = [
   { code: 'ZA', label: 'South Africa' },
 ];
 
-// idle -> submitting -> analyzing -> done | error
+// idle -> submitting -> done | error
+// The webhook analyzes the message itself (no login needed) and returns the analysis.
 const MessagingSimulatorPage = () => {
   const [channel, setChannel] = useState('whatsapp');
   const [message, setMessage] = useState('');
@@ -36,7 +37,6 @@ const MessagingSimulatorPage = () => {
     setErrorMessage('');
     setAnalysis(null);
 
-    let createdId;
     try {
       const response = await submitMessagingRequest({
         channel,
@@ -46,27 +46,22 @@ const MessagingSimulatorPage = () => {
         language: language || undefined,
         region: region || undefined,
       });
-      createdId = response.data.requestId;
-      setRequestId(createdId);
+      setRequestId(response.data.requestId);
+      if (response.data.analysisStatus === 'completed' && response.data.analysis) {
+        setAnalysis(response.data.analysis);
+        setStatus('done');
+        setMessage('');
+      } else {
+        setErrorMessage('Request was saved but AI analysis could not be completed.');
+        setStatus('error');
+      }
     } catch (err) {
       setErrorMessage(err?.response?.data?.message || 'Unable to submit the simulated message.');
-      setStatus('error');
-      return;
-    }
-
-    setStatus('analyzing');
-    try {
-      const analyzeResponse = await analyzeRequest(createdId);
-      setAnalysis(analyzeResponse.data.analysis);
-      setStatus('done');
-      setMessage('');
-    } catch (err) {
-      setErrorMessage('Request was saved but AI analysis could not be completed.');
       setStatus('error');
     }
   };
 
-  const isBusy = status === 'submitting' || status === 'analyzing';
+  const isBusy = status === 'submitting';
 
   return (
     <div>
@@ -130,7 +125,7 @@ const MessagingSimulatorPage = () => {
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={isBusy || !message.trim()}>
-            {status === 'submitting' ? 'Sending...' : status === 'analyzing' ? 'Understanding...' : 'Send Simulated Message'}
+            {status === 'submitting' ? 'Sending and understanding...' : 'Send Simulated Message'}
           </button>
         </form>
 
